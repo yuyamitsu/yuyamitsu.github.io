@@ -133,7 +133,7 @@ function addPerson(name){
   div.innerHTML = `
     <button class="remove" onclick="removePerson(this)">×</button>
     <h2>👤 ${personName}</h2>
-    <textarea placeholder="${personName}さんの発言をメモ..."></textarea>
+    <textarea placeholder="${personName}の発言をメモ..."></textarea>
   `;
   document.getElementById('people').appendChild(div);
   document.getElementById('newName').value = '';

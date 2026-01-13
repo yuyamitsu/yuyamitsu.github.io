@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スマート会議メモ（安全版）</title>
+<title>スマート会議メモ（完全版）</title>
 <style>
 :root {
   --primary: #2563eb;
@@ -27,6 +27,7 @@ button:active { opacity: 0.7; }
 .btn-add { background: var(--success); color: white; }
 .btn-primary { background: var(--primary); color: white; width: 100%; margin-top: 10px; font-size: 16px; }
 .btn-copy { background: #0ea5e9; color: white; margin-top: 8px; }
+.btn-download { background: #2563eb; color: white; margin-top: 8px; }
 .person { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; border-left: 5px solid #cbd5e1; }
 .person.active { border-left-color: var(--primary); background: #f8faff; }
 .person h2 { font-size: 1rem; margin: 0 0 10px 0; display: flex; align-items: center; }
@@ -35,16 +36,16 @@ button:active { opacity: 0.7; }
 textarea { width: 100%; min-height: 80px; resize: vertical; box-sizing: border-box; }
 .speech-area { text-align: center; background: #1e293b; color: white; padding: 15px; border-radius: 12px; margin-bottom: 16px; }
 .speech-area select { background: #334155; color: white; border: none; }
-.btn-mic { background: var(--danger); color: white; animation: pulse 2s infinite; display: none; margin: 10px auto; }
-@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 .output-area { margin-top: 24px; }
-#output { width: 100%; height: 150px; background: #f1f5f9; font-family: monospace; }
+#output, #chatGptPrompt { width: 100%; font-family: monospace; }
+#output { height: 150px; background: #f1f5f9; }
+#chatGptPrompt { min-height:120px; background:#f8fafc; }
 .status-msg { font-size: 12px; color: var(--success); margin-left: 8px; }
 </style>
 </head>
 <body class="morning">
 <div class="container">
-  <h1>🌤 会議メモアシスタント（安全版）</h1>
+  <h1>🌤 会議メモアシスタント（完全版）</h1>
 
   <div class="card">
     <div class="flex-group">
@@ -74,9 +75,16 @@ textarea { width: 100%; min-height: 80px; resize: vertical; box-sizing: border-b
   <button class="btn-primary" onclick="buildMemo()">📋 固定フォーマットで生成</button>
 
   <div class="output-area">
+    <h3>📝 固定フォーマットテキスト</h3>
     <textarea id="output" readonly placeholder="生成されたテキストがここに表示されます"></textarea>
     <button class="btn-copy" onclick="copyAll()">全文コピー</button>
+    <button class="btn-download" onclick="downloadTxt()">⬇ .txtで保存</button>
     <span id="copyMsg" class="status-msg"></span>
+
+    <h3 style="margin-top:12px;">💡 ChatGPT用プロンプト</h3>
+    <textarea id="chatGptPrompt" readonly placeholder="ChatGPTに貼る用のプロンプトがここに表示されます"></textarea>
+    <button class="btn-copy" onclick="copyPrompt()">プロンプトコピー</button>
+    <span id="promptMsg" class="status-msg"></span>
   </div>
 </div>
 
@@ -105,11 +113,9 @@ function addPerson(name){
   const div = document.createElement('div');
   div.className = 'person';
   div.dataset.name = personName;
-  div.innerHTML = `
-    <button class="remove" onclick="removePerson(this)">×</button>
-    <h2>👤 ${personName}</h2>
-    <textarea placeholder="${personName}の発言をメモ..."></textarea>
-  `;
+  div.innerHTML = `<button class="remove" onclick="removePerson(this)">×</button>
+                   <h2>👤 ${personName}</h2>
+                   <textarea placeholder="${personName}の発言をメモ..."></textarea>`;
   document.getElementById('people').appendChild(div);
   document.getElementById('newName').value = '';
   updateActiveSpeakerOptions();
@@ -186,14 +192,15 @@ function appendToSpeaker(text) {
 }
 
 function escapeHTML(str){
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function buildMemo() {
   const date = document.getElementById('meetingDate').value.replace(/-/g, '/');
   const type = document.getElementById('meetingType').value;
+
   let result = `${date}\n\n${type}\n\n`;
-  
   document.querySelectorAll('.person').forEach(p => {
     const name = escapeHTML(p.dataset.name);
     const text = p.querySelector('textarea').value.trim();
@@ -204,8 +211,15 @@ function buildMemo() {
     });
     result += '\n';
   });
-
   document.getElementById('output').value = result.trim();
+
+  // ChatGPT用プロンプト生成
+  let prompt = `以下のメモから、チーム共有用の議事録を作成してください。\n`;
+  prompt += `形式：日付、名前、箇条書き（要点を整理）\n\n`;
+  prompt += `【${date} ${type}】\n`;
+  prompt += result;
+  prompt += `\n\n※このままコピーしてChatGPTに貼り付けてください。`;
+  document.getElementById('chatGptPrompt').value = prompt;
 }
 
 function copyAll() {
@@ -216,6 +230,34 @@ function copyAll() {
     msg.innerText = '✅ コピー完了！';
     setTimeout(() => msg.innerText = '', 2000);
   });
+}
+
+function copyPrompt() {
+  const ta = document.getElementById('chatGptPrompt');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const msg = document.getElementById('promptMsg');
+    msg.innerText = '✅ コピー完了！';
+    setTimeout(() => msg.innerText = '', 2000);
+  });
+}
+
+function downloadTxt() {
+  const text = document.getElementById('output').value;
+  if (!text.trim()) return alert('テキストが入力されていません');
+
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = getFileName();
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function getFileName() {
+  const date = document.getElementById('meetingDate').value.replace(/-/g,'');
+  const type = document.getElementById('meetingType').value.split('_')[1] || 'meeting';
+  return `${date}_${type}.txt`;
 }
 
 function saveMembers() {

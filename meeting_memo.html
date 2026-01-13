@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スマート朝礼・終礼メモ（安全版）</title>
+<title>スマート会議メモ（安全版）</title>
 <style>
 :root {
   --primary: #2563eb;
@@ -50,8 +50,9 @@ textarea { width: 100%; min-height: 80px; resize: vertical; box-sizing: border-b
     <div class="flex-group">
       <input type="date" id="meetingDate">
       <select id="meetingType" onchange="switchTheme()">
-        <option value="朝礼">☀️ 朝礼</option>
-        <option value="終礼">🌙 終礼</option>
+        <option value="AM_朝礼">☀️ 朝礼</option>
+        <option value="PM_終礼">🌙 終礼</option>
+        <option value="MTG_臨時">💡 臨時MTG</option>
       </select>
     </div>
     <div class="flex-group">
@@ -70,7 +71,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; box-sizing: border-b
 
   <div id="people"></div>
 
-  <button class="btn-primary" onclick="buildMemo()">📋 ChatGPT用テキストを生成</button>
+  <button class="btn-primary" onclick="buildMemo()">📋 固定フォーマットで生成</button>
 
   <div class="output-area">
     <textarea id="output" readonly placeholder="生成されたテキストがここに表示されます"></textarea>
@@ -95,7 +96,7 @@ window.onload = () => {
 
 function switchTheme(){
   const type = document.getElementById('meetingType').value;
-  document.body.className = type === '朝礼' ? 'morning' : 'evening';
+  document.body.className = (type === 'AM_朝礼') ? 'morning' : 'evening';
 }
 
 function addPerson(name){
@@ -184,7 +185,6 @@ function appendToSpeaker(text) {
   }
 }
 
-// HTMLエスケープ関数（XSS対策）
 function escapeHTML(str){
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
@@ -192,18 +192,20 @@ function escapeHTML(str){
 function buildMemo() {
   const date = document.getElementById('meetingDate').value.replace(/-/g, '/');
   const type = document.getElementById('meetingType').value;
-  let result = `以下のメモから、チーム共有用の議事録を作成してください。\n形式：日付、名前、箇条書き（要点を整理）\n\n`;
-  result += `【${date} ${type}】\n`;
+  let result = `${date}\n\n${type}\n\n`;
+  
   document.querySelectorAll('.person').forEach(p => {
     const name = escapeHTML(p.dataset.name);
     const text = p.querySelector('textarea').value.trim();
-    if (!text) return;
-    result += `\n■${name}\n`;
+    if(!text) return;
+    result += `発言者：${name}\n`;
     text.split('\n').forEach(line => {
-      if(line) result += `・${escapeHTML(line.replace(/^・/, ''))}\n`;
+      if(line) result += `・${escapeHTML(line.replace(/^・/,''))}\n`;
     });
+    result += '\n';
   });
-  document.getElementById('output').value = result;
+
+  document.getElementById('output').value = result.trim();
 }
 
 function copyAll() {
